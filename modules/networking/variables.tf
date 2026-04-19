@@ -2,13 +2,9 @@ variable "project_name" {
   type = string
 }
 
-variable "aws_region" {
-  type = string
-  default = "il-central-1"
-}
-
 variable "vpc_cidr" {
-  type = string
+  type    = string
+  default = "10.0.0.0/16"
 }
 
 variable "public_subnet_cidrs" {
@@ -26,5 +22,5 @@ variable "azs" {
 variable "environment" {
   type        = string
   description = "Deployment environment name"
-  default = "dev"
+  default     = "dev"
 }

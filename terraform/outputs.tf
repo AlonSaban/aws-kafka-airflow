@@ -2,6 +2,10 @@ output "vpc_id" {
   value = module.networking.vpc_id
 }
 
-output "kafka_private_ip" {
-  value = module.kafka.private_ip
+output "public_security_group_id" {
+  value = module.security.public_security_group_id
+}
+
+output "private_security_group_id" {
+  value = module.security.private_security_group_id
 }

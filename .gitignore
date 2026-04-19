@@ -1,5 +1,6 @@
 # Terraform working dir
 .terraform/
+.terraform.lock.hcl
 
 # Terraform state
 *.tfstate

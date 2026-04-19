@@ -3,7 +3,7 @@ variable "project_name" {
 }
 
 variable "aws_region" {
-  type = string
+  type    = string
   default = "il-central-1"
 }
 
@@ -26,5 +26,5 @@ variable "azs" {
 variable "environment" {
   type        = string
   description = "Deployment environment name"
-  default = "dev"
+  default     = "dev"
 }
