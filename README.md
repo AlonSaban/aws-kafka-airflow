@@ -34,11 +34,13 @@ The goal is to demonstrate infrastructure provisioning, CDC ingestion, stream pr
 │   ├── variables.tf
 │   ├── outputs.tf
 │   ├── backend.tf
-│   └── modules/
-│       ├── networking/
-│       ├── kafka/
-│       ├── database/
-│       └── airflow/
+├──  modules/
+│   ├── networking/
+│   ├── kafka/
+│   ├── database/
+│   ├── airflow/
+│   ├── trino/
+│   ├── s3tables/
 ├── airflow/
 │   └── dags/
 │       └── kafka_to_s3_tables.py
