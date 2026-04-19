@@ -17,3 +17,12 @@ module "security" {
   vpc_id         = module.networking.vpc_id
   vpc_cidr_block = module.networking.vpc_cidr_block
 }
+
+module "s3tables" {
+  source = "../modules/s3tables"
+
+  table_bucket_name = var.s3tables_bucket_name
+  namespace         = var.s3tables_namespace
+  table_name        = var.s3tables_table_name
+  environment       = var.environment
+}

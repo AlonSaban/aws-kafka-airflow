@@ -28,3 +28,18 @@ variable "environment" {
   description = "Deployment environment name"
   default     = "dev"
 }
+
+variable "s3tables_bucket_name" {
+  type        = string
+  description = "Name of the S3 Tables bucket"
+}
+
+variable "s3tables_namespace" {
+  type        = string
+  description = "Namespace for the S3 Tables Iceberg catalog"
+}
+
+variable "s3tables_table_name" {
+  type        = string
+  description = "Name of the S3 Tables Iceberg table"
+}
