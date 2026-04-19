@@ -43,3 +43,27 @@ variable "s3tables_table_name" {
   type        = string
   description = "Name of the S3 Tables Iceberg table"
 }
+
+variable "database_instance_type" {
+  type        = string
+  description = "EC2 instance type for the PostgreSQL source database"
+  default     = "t3.medium"
+}
+
+variable "database_volume_size" {
+  type        = number
+  description = "Root volume size in GiB for the PostgreSQL instance"
+  default     = 30
+}
+
+variable "database_name" {
+  type        = string
+  description = "PostgreSQL database name"
+  default     = "orders_db"
+}
+
+variable "database_username" {
+  type        = string
+  description = "PostgreSQL username for CDC access"
+  default     = "cdc_user"
+}

@@ -26,3 +26,17 @@ module "s3tables" {
   table_name        = var.s3tables_table_name
   environment       = var.environment
 }
+
+module "database" {
+  source = "../modules/database"
+
+  project_name           = var.project_name
+  environment            = var.environment
+  subnet_id              = module.networking.private_subnet_ids[0]
+  vpc_security_group_ids = [module.security.private_security_group_id]
+  vpc_cidr_block         = module.networking.vpc_cidr_block
+  instance_type          = var.database_instance_type
+  volume_size            = var.database_volume_size
+  db_name                = var.database_name
+  db_username            = var.database_username
+}
