@@ -3,7 +3,7 @@ set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y openjdk-17-jre-headless wget gpg curl jq
+apt-get install -y openjdk-17-jre-headless wget gpg curl jq awscli
 
 mkdir -p /etc/apt/keyrings
 wget -qO - https://packages.confluent.io/deb/8.2/archive.key | gpg --dearmor > /etc/apt/keyrings/confluent.gpg
@@ -94,3 +94,53 @@ systemctl restart confluent-schema-registry
 systemctl restart confluent-kafka-connect
 
 /usr/bin/kafka-topics --bootstrap-server "$${PRIVATE_IP}:9092" --create --if-not-exists --topic "${topic_name}" --partitions 1 --replication-factor 1
+
+DB_PASSWORD="$(aws ssm get-parameter --name "${db_password_ssm_parameter_name}" --with-decryption --region "${aws_region}" --query 'Parameter.Value' --output text)"
+
+for attempt in $(seq 1 30); do
+  if curl -sf "http://$${PRIVATE_IP}:8083/connectors" >/dev/null; then
+    break
+  fi
+  sleep 10
+done
+
+cat > /tmp/debezium-postgres-connector.json <<EOF
+{
+  "name": "${project_name}-${environment}-postgres-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "database.hostname": "${db_host}",
+    "database.port": "${db_port}",
+    "database.user": "${db_username}",
+    "database.password": "$${DB_PASSWORD}",
+    "database.dbname": "${db_name}",
+    "database.server.name": "${project_name}_${environment}_postgres",
+    "database.sslmode": "disable",
+    "plugin.name": "pgoutput",
+    "publication.name": "debezium_publication",
+    "publication.autocreate.mode": "disabled",
+    "slot.name": "${project_name}_${environment}_orders_slot",
+    "table.include.list": "public.orders",
+    "topic.prefix": "${project_name}_${environment}_postgres",
+    "topic.creation.enable": "false",
+    "transforms": "unwrap,addTopic",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,source.ts_ms",
+    "transforms.addTopic.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.addTopic.regex": "(.*)",
+    "transforms.addTopic.replacement": "${topic_name}",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}
+EOF
+
+curl -sf -X PUT \
+  -H "Content-Type: application/json" \
+  --data @/tmp/debezium-postgres-connector.json \
+  "http://$${PRIVATE_IP}:8083/connectors/${project_name}-${environment}-postgres-cdc/config"

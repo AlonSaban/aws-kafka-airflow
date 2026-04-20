@@ -21,6 +21,30 @@ data "aws_iam_policy_document" "ec2_assume_role" {
   }
 }
 
+data "aws_region" "current" {}
+
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "ssm_parameter_access" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter"
+    ]
+    resources = [
+      "arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter/${trimprefix(var.db_password_ssm_parameter_name, "/")}"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt"
+    ]
+    resources = ["*"]
+  }
+}
+
 resource "aws_iam_role" "kafka" {
   name               = "${var.project_name}-${var.environment}-kafka-role"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
@@ -37,6 +61,12 @@ resource "aws_iam_role_policy_attachment" "ssm_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy" "ssm_parameter_access" {
+  name   = "${var.project_name}-${var.environment}-kafka-ssm-access"
+  role   = aws_iam_role.kafka.id
+  policy = data.aws_iam_policy_document.ssm_parameter_access.json
+}
+
 resource "aws_iam_instance_profile" "kafka" {
   name = "${var.project_name}-${var.environment}-kafka-profile"
   role = aws_iam_role.kafka.name
@@ -50,9 +80,15 @@ resource "aws_instance" "this" {
   iam_instance_profile   = aws_iam_instance_profile.kafka.name
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    environment  = var.environment
-    project_name = var.project_name
-    topic_name   = var.topic_name
+    aws_region                     = var.aws_region
+    db_host                        = var.db_host
+    db_name                        = var.db_name
+    db_password_ssm_parameter_name = var.db_password_ssm_parameter_name
+    db_port                        = var.db_port
+    db_username                    = var.db_username
+    environment                    = var.environment
+    project_name                   = var.project_name
+    topic_name                     = var.topic_name
   })
 
   metadata_options {

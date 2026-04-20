@@ -33,7 +33,7 @@ module "database" {
   project_name           = var.project_name
   environment            = var.environment
   subnet_id              = module.networking.private_subnet_ids[0]
-  vpc_security_group_ids = [module.security.private_security_group_id]
+  vpc_security_group_ids = [module.security.database_security_group_id]
   vpc_cidr_block         = module.networking.vpc_cidr_block
   instance_type          = var.database_instance_type
   volume_size            = var.database_volume_size
@@ -44,11 +44,17 @@ module "database" {
 module "kafka" {
   source = "../modules/kafka"
 
-  project_name           = var.project_name
-  environment            = var.environment
-  subnet_id              = module.networking.private_subnet_ids[0]
-  vpc_security_group_ids = [module.security.private_security_group_id]
-  instance_type          = var.kafka_instance_type
-  volume_size            = var.kafka_volume_size
-  topic_name             = var.kafka_topic_name
+  aws_region                     = var.aws_region
+  db_host                        = module.database.private_ip
+  db_name                        = module.database.db_name
+  db_password_ssm_parameter_name = module.database.db_password_ssm_parameter_name
+  db_port                        = module.database.db_port
+  db_username                    = module.database.db_username
+  project_name                   = var.project_name
+  environment                    = var.environment
+  subnet_id                      = module.networking.private_subnet_ids[0]
+  vpc_security_group_ids         = [module.security.kafka_security_group_id]
+  instance_type                  = var.kafka_instance_type
+  volume_size                    = var.kafka_volume_size
+  topic_name                     = var.kafka_topic_name
 }

@@ -6,8 +6,12 @@ output "public_security_group_id" {
   value = module.security.public_security_group_id
 }
 
-output "private_security_group_id" {
-  value = module.security.private_security_group_id
+output "database_security_group_id" {
+  value = module.security.database_security_group_id
+}
+
+output "kafka_security_group_id" {
+  value = module.security.kafka_security_group_id
 }
 
 output "s3tables_bucket_arn" {

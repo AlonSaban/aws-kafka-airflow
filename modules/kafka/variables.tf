@@ -35,3 +35,34 @@ variable "topic_name" {
   description = "Kafka topic to create for CDC events"
   default     = "cdc.orders"
 }
+
+variable "aws_region" {
+  type        = string
+  description = "AWS region where the Kafka host is deployed"
+}
+
+variable "db_host" {
+  type        = string
+  description = "Private IP or hostname of the PostgreSQL source database"
+}
+
+variable "db_port" {
+  type        = number
+  description = "Port of the PostgreSQL source database"
+  default     = 5432
+}
+
+variable "db_name" {
+  type        = string
+  description = "PostgreSQL database name"
+}
+
+variable "db_username" {
+  type        = string
+  description = "PostgreSQL username for Debezium CDC access"
+}
+
+variable "db_password_ssm_parameter_name" {
+  type        = string
+  description = "SSM parameter containing the PostgreSQL password"
+}
