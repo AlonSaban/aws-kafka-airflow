@@ -53,3 +53,27 @@ output "database_username" {
 output "database_password_ssm_parameter_name" {
   value = module.database.db_password_ssm_parameter_name
 }
+
+output "kafka_instance_id" {
+  value = module.kafka.instance_id
+}
+
+output "kafka_private_ip" {
+  value = module.kafka.private_ip
+}
+
+output "kafka_bootstrap_servers" {
+  value = module.kafka.bootstrap_servers
+}
+
+output "kafka_schema_registry_url" {
+  value = module.kafka.schema_registry_url
+}
+
+output "kafka_connect_rest_url" {
+  value = module.kafka.connect_rest_url
+}
+
+output "kafka_topic_name" {
+  value = module.kafka.topic_name
+}

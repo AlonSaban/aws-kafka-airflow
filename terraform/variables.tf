@@ -67,3 +67,21 @@ variable "database_username" {
   description = "PostgreSQL username for CDC access"
   default     = "cdc_user"
 }
+
+variable "kafka_instance_type" {
+  type        = string
+  description = "EC2 instance type for the Kafka host"
+  default     = "t3.large"
+}
+
+variable "kafka_volume_size" {
+  type        = number
+  description = "Root volume size in GiB for the Kafka instance"
+  default     = 80
+}
+
+variable "kafka_topic_name" {
+  type        = string
+  description = "Kafka topic name for CDC events"
+  default     = "cdc.orders"
+}

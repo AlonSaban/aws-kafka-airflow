@@ -40,3 +40,15 @@ module "database" {
   db_name                = var.database_name
   db_username            = var.database_username
 }
+
+module "kafka" {
+  source = "../modules/kafka"
+
+  project_name           = var.project_name
+  environment            = var.environment
+  subnet_id              = module.networking.private_subnet_ids[0]
+  vpc_security_group_ids = [module.security.private_security_group_id]
+  instance_type          = var.kafka_instance_type
+  volume_size            = var.kafka_volume_size
+  topic_name             = var.kafka_topic_name
+}
