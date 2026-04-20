@@ -97,3 +97,21 @@ variable "airflow_volume_size" {
   description = "Root volume size in GiB for the Airflow instance"
   default     = 50
 }
+
+variable "trino_instance_type" {
+  type        = string
+  description = "EC2 instance type for the Trino host"
+  default     = "t3.large"
+}
+
+variable "trino_volume_size" {
+  type        = number
+  description = "Root volume size in GiB for the Trino instance"
+  default     = 40
+}
+
+variable "trino_version" {
+  type        = string
+  description = "Trino version to deploy"
+  default     = "480"
+}

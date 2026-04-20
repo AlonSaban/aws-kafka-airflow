@@ -76,3 +76,20 @@ module "airflow" {
   s3tables_namespace      = module.s3tables.namespace
   s3tables_table_name     = module.s3tables.table_name
 }
+
+module "trino" {
+  source = "../modules/trino"
+
+  project_name           = var.project_name
+  environment            = var.environment
+  aws_region             = var.aws_region
+  subnet_id              = module.networking.private_subnet_ids[0]
+  vpc_security_group_ids = [module.security.trino_security_group_id]
+  instance_type          = var.trino_instance_type
+  volume_size            = var.trino_volume_size
+  trino_version          = var.trino_version
+  s3tables_bucket_arn    = module.s3tables.table_bucket_arn
+  s3tables_table_arn     = module.s3tables.table_arn
+  s3tables_namespace     = module.s3tables.namespace
+  s3tables_table_name    = module.s3tables.table_name
+}

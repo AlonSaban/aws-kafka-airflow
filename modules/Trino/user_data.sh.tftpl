@@ -1,0 +1,98 @@
+#!/bin/bash
+set -euxo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y wget curl tar gzip gnupg uuid-runtime
+
+mkdir -p /etc/apt/keyrings
+wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor > /etc/apt/keyrings/adoptium.gpg
+
+cat > /etc/apt/sources.list.d/adoptium.list <<EOF
+deb [signed-by=/etc/apt/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb jammy main
+EOF
+
+apt-get update
+apt-get install -y temurin-24-jdk
+
+useradd --system --create-home --home-dir /var/lib/trino --shell /usr/sbin/nologin trino || true
+
+mkdir -p /opt /etc/trino/catalog /var/trino/data /var/trino/log
+cd /opt
+wget -q "https://repo1.maven.org/maven2/io/trino/trino-server/${trino_version}/trino-server-${trino_version}.tar.gz"
+tar -xzf "trino-server-${trino_version}.tar.gz"
+ln -sfn "/opt/trino-server-${trino_version}" /opt/trino
+rm -f "trino-server-${trino_version}.tar.gz"
+
+wget -q -O /usr/local/bin/trino "https://repo1.maven.org/maven2/io/trino/trino-cli/${trino_version}/trino-cli-${trino_version}-executable.jar"
+chmod +x /usr/local/bin/trino
+
+cat > /etc/trino/node.properties <<EOF
+node.environment=production
+node.id=$(uuidgen)
+node.data-dir=/var/trino/data
+EOF
+
+cat > /etc/trino/jvm.config <<'EOF'
+-server
+-Xmx2G
+-XX:+UseG1GC
+-XX:InitialRAMPercentage=40
+-XX:MaxRAMPercentage=60
+-XX:+ExitOnOutOfMemoryError
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:-OmitStackTraceInFastThrow
+EOF
+
+cat > /etc/trino/config.properties <<'EOF'
+coordinator=true
+node-scheduler.include-coordinator=true
+http-server.http.port=8080
+discovery.uri=http://127.0.0.1:8080
+EOF
+
+cat > /etc/trino/catalog/s3tables.properties <<EOF
+connector.name=iceberg
+fs.native-s3.enabled=true
+iceberg.catalog.type=rest
+iceberg.rest-catalog.uri=https://s3tables.${aws_region}.amazonaws.com/iceberg
+iceberg.rest-catalog.warehouse=${s3tables_bucket_arn}
+iceberg.rest-catalog.security=SIGV4
+iceberg.rest-catalog.signing-name=s3tables
+iceberg.rest-catalog.vended-credentials-enabled=true
+iceberg.security=read_only
+EOF
+
+chown -R trino:trino /opt/trino-server-${trino_version} /opt/trino /etc/trino /var/trino /var/lib/trino
+
+cat > /etc/systemd/system/trino.service <<'EOF'
+[Unit]
+Description=Trino
+After=network.target
+
+[Service]
+Type=forking
+User=trino
+Group=trino
+ExecStart=/opt/trino/bin/launcher start --etc-dir /etc/trino
+ExecStop=/opt/trino/bin/launcher stop --etc-dir /etc/trino
+PIDFile=/var/trino/data/var/run/launcher.pid
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=131072
+LimitNPROC=128000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /usr/local/bin/query-orders.sh <<EOF
+#!/bin/bash
+set -euo pipefail
+/usr/local/bin/trino --server http://127.0.0.1:8080 --catalog s3tables --schema ${namespace} --execute "SELECT * FROM ${table_name} LIMIT 10"
+EOF
+chmod +x /usr/local/bin/query-orders.sh
+
+systemctl daemon-reload
+systemctl enable trino
+systemctl restart trino

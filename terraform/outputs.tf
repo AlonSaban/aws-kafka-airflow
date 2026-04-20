@@ -18,6 +18,10 @@ output "airflow_security_group_id" {
   value = module.security.airflow_security_group_id
 }
 
+output "trino_security_group_id" {
+  value = module.security.trino_security_group_id
+}
+
 output "s3tables_bucket_arn" {
   value = module.s3tables.table_bucket_arn
 }
@@ -100,4 +104,16 @@ output "airflow_web_url" {
 
 output "airflow_admin_password_ssm_parameter_name" {
   value = module.airflow.admin_password_ssm_parameter_name
+}
+
+output "trino_instance_id" {
+  value = module.trino.instance_id
+}
+
+output "trino_private_ip" {
+  value = module.trino.private_ip
+}
+
+output "trino_web_url" {
+  value = module.trino.web_url
 }
