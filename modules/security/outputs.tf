@@ -3,7 +3,12 @@ output "public_security_group_id" {
   value       = aws_security_group.public.id
 }
 
-output "private_security_group_id" {
-  description = "ID of the private security group"
-  value       = aws_security_group.private.id
+output "database_security_group_id" {
+  description = "ID of the database security group"
+  value       = aws_security_group.database.id
+}
+
+output "kafka_security_group_id" {
+  description = "ID of the Kafka security group"
+  value       = aws_security_group.kafka.id
 }
