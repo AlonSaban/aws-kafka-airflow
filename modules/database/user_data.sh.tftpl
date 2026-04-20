@@ -1,0 +1,61 @@
+#!/bin/bash
+set -euxo pipefail
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y postgresql postgresql-contrib
+
+PG_VERSION="$(ls /etc/postgresql | sort -V | tail -n1)"
+PG_HBA="/etc/postgresql/$${PG_VERSION}/main/pg_hba.conf"
+
+cat > "/etc/postgresql/$${PG_VERSION}/main/conf.d/dataops-cdc.conf" <<'CONF'
+listen_addresses = '*'
+wal_level = logical
+max_wal_senders = 10
+max_replication_slots = 10
+password_encryption = 'scram-sha-256'
+CONF
+
+sed -i '/# BEGIN DATAOPS MANAGED RULES/,/# END DATAOPS MANAGED RULES/d' "$PG_HBA"
+cat >> "$PG_HBA" <<EOF
+# BEGIN DATAOPS MANAGED RULES
+host all all ${vpc_cidr_block} scram-sha-256
+host replication ${db_username} ${vpc_cidr_block} scram-sha-256
+# END DATAOPS MANAGED RULES
+EOF
+
+systemctl enable postgresql
+systemctl restart postgresql
+
+sudo -u postgres psql -v ON_ERROR_STOP=1 <<EOF
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${db_username}') THEN
+    CREATE ROLE ${db_username} WITH LOGIN PASSWORD '${db_password}' REPLICATION;
+  ELSE
+    ALTER ROLE ${db_username} WITH LOGIN PASSWORD '${db_password}' REPLICATION;
+  END IF;
+END
+\$\$;
+EOF
+
+sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${db_name}'" | grep -q 1 || sudo -u postgres createdb "${db_name}"
+
+sudo -u postgres psql -d "${db_name}" -v ON_ERROR_STOP=1 <<EOF
+GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_username};
+GRANT USAGE, CREATE ON SCHEMA public TO ${db_username};
+
+CREATE TABLE IF NOT EXISTS public.orders (
+  id BIGSERIAL PRIMARY KEY,
+  customer_name VARCHAR(255) NOT NULL,
+  amount NUMERIC(10,2) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.orders TO ${db_username};
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${db_username};
+
+DROP PUBLICATION IF EXISTS debezium_publication;
+CREATE PUBLICATION debezium_publication FOR TABLE public.orders;
+EOF
