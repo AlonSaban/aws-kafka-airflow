@@ -12,10 +12,9 @@ module "networking" {
 module "security" {
   source = "../modules/security"
 
-  project_name   = var.project_name
-  environment    = var.environment
-  vpc_id         = module.networking.vpc_id
-  vpc_cidr_block = module.networking.vpc_cidr_block
+  project_name = var.project_name
+  environment  = var.environment
+  vpc_id       = module.networking.vpc_id
 }
 
 module "s3tables" {

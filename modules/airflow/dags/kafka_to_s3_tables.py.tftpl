@@ -9,6 +9,7 @@ import pyarrow as pa
 from airflow import DAG
 from airflow.decorators import task
 from airflow.hooks.base import BaseHook
+from airflow.models import Variable
 from kafka import KafkaConsumer
 from pyiceberg.catalog import load_catalog
 
@@ -59,6 +60,12 @@ def _delete_filter_for_ids(ids: list[int]) -> str:
     return f"id in ({joined})"
 
 
+KAFKA_TOPIC = Variable.get("dataops_kafka_topic_name")
+S3TABLES_BUCKET_ARN = Variable.get("dataops_s3tables_bucket_arn")
+S3TABLES_NAMESPACE = Variable.get("dataops_s3tables_namespace")
+S3TABLES_TABLE_NAME = Variable.get("dataops_s3tables_table_name")
+
+
 with DAG(
     dag_id="kafka_to_s3_tables",
     start_date=datetime(2025, 1, 1),
@@ -75,10 +82,12 @@ with DAG(
         if not bootstrap_servers:
             raise ValueError("kafka_default connection is missing bootstrap.servers")
 
-        aws_region = aws_conn.extra_dejson.get("region_name") or "${aws_region}"
+        aws_region = aws_conn.extra_dejson.get("region_name")
+        if not aws_region:
+            raise ValueError("aws_default connection is missing region_name")
 
         consumer = KafkaConsumer(
-            "${kafka_topic_name}",
+            KAFKA_TOPIC,
             bootstrap_servers=bootstrap_servers,
             group_id="airflow-kafka-to-s3tables",
             auto_offset_reset="earliest",
@@ -109,14 +118,14 @@ with DAG(
             "s3tables",
             **{
                 "type": "rest",
-                "warehouse": "${s3tables_bucket_arn}",
+                "warehouse": S3TABLES_BUCKET_ARN,
                 "uri": f"https://s3tables.{aws_region}.amazonaws.com/iceberg",
                 "rest.sigv4-enabled": "true",
                 "rest.signing-name": "s3tables",
                 "rest.signing-region": aws_region,
             },
         )
-        table = catalog.load_table("${s3tables_namespace}.${s3tables_table_name}")
+        table = catalog.load_table(f"{S3TABLES_NAMESPACE}.{S3TABLES_TABLE_NAME}")
 
         if ids_to_replace:
             table.delete(_delete_filter_for_ids(ids_to_replace))

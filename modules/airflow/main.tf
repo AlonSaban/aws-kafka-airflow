@@ -81,13 +81,7 @@ resource "aws_iam_instance_profile" "airflow" {
 }
 
 locals {
-  dag_code = templatefile("${path.module}/dags/kafka_to_s3_tables.py.tftpl", {
-    aws_region          = var.aws_region
-    kafka_topic_name    = var.kafka_topic_name
-    s3tables_bucket_arn = var.s3tables_bucket_arn
-    s3tables_namespace  = var.s3tables_namespace
-    s3tables_table_name = var.s3tables_table_name
-  })
+  dag_code = file("${path.module}/dags/kafka_to_s3_tables.py.tftpl")
 }
 
 resource "aws_instance" "this" {
@@ -102,6 +96,10 @@ resource "aws_instance" "this" {
     aws_region              = var.aws_region
     dag_code                = local.dag_code
     kafka_bootstrap_servers = var.kafka_bootstrap_servers
+    kafka_topic_name        = var.kafka_topic_name
+    s3tables_bucket_arn     = var.s3tables_bucket_arn
+    s3tables_namespace      = var.s3tables_namespace
+    s3tables_table_name     = var.s3tables_table_name
   })
 
   metadata_options {
