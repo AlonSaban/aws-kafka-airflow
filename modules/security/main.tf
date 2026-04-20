@@ -3,24 +3,6 @@ resource "aws_security_group" "public" {
   description = "Security group for public-facing resources"
   vpc_id      = var.vpc_id
 
-  ingress {
-    description      = "Allow HTTP"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  ingress {
-    description      = "Allow HTTPS"
-    from_port        = 443
-    to_port          = 443
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
   egress {
     description      = "Allow all outbound traffic"
     from_port        = 0
@@ -63,30 +45,6 @@ resource "aws_security_group" "kafka" {
   description = "Security group for the Kafka, Schema Registry, and Connect host"
   vpc_id      = var.vpc_id
 
-  ingress {
-    description = "Allow Kafka broker traffic from the VPC"
-    from_port   = 9092
-    to_port     = 9092
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr_block]
-  }
-
-  ingress {
-    description = "Allow Schema Registry traffic from the VPC"
-    from_port   = 8081
-    to_port     = 8081
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr_block]
-  }
-
-  ingress {
-    description = "Allow Kafka Connect REST traffic from the VPC"
-    from_port   = 8083
-    to_port     = 8083
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr_block]
-  }
-
   egress {
     description      = "Allow all outbound traffic"
     from_port        = 0
@@ -108,14 +66,6 @@ resource "aws_security_group" "airflow" {
   description = "Security group for the Airflow host"
   vpc_id      = var.vpc_id
 
-  ingress {
-    description = "Allow Airflow web UI from the VPC"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr_block]
-  }
-
   egress {
     description      = "Allow all outbound traffic"
     from_port        = 0
@@ -136,14 +86,6 @@ resource "aws_security_group" "trino" {
   name        = "${var.project_name}-${var.environment}-trino-sg"
   description = "Security group for the Trino host"
   vpc_id      = var.vpc_id
-
-  ingress {
-    description = "Allow Trino web UI and API from the VPC"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [var.vpc_cidr_block]
-  }
 
   egress {
     description      = "Allow all outbound traffic"
@@ -168,4 +110,13 @@ resource "aws_vpc_security_group_ingress_rule" "database_postgres_from_kafka" {
   to_port                      = 5432
   ip_protocol                  = "tcp"
   description                  = "Allow PostgreSQL access from the Kafka Connect host"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "kafka_broker_from_airflow" {
+  security_group_id            = aws_security_group.kafka.id
+  referenced_security_group_id = aws_security_group.airflow.id
+  from_port                    = 9092
+  to_port                      = 9092
+  ip_protocol                  = "tcp"
+  description                  = "Allow Airflow to consume CDC events from Kafka"
 }
