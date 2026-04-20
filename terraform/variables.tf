@@ -85,3 +85,15 @@ variable "kafka_topic_name" {
   description = "Kafka topic name for CDC events"
   default     = "cdc.orders"
 }
+
+variable "airflow_instance_type" {
+  type        = string
+  description = "EC2 instance type for the Airflow host"
+  default     = "t3.large"
+}
+
+variable "airflow_volume_size" {
+  type        = number
+  description = "Root volume size in GiB for the Airflow instance"
+  default     = 50
+}

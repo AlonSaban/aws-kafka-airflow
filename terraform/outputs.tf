@@ -14,6 +14,10 @@ output "kafka_security_group_id" {
   value = module.security.kafka_security_group_id
 }
 
+output "airflow_security_group_id" {
+  value = module.security.airflow_security_group_id
+}
+
 output "s3tables_bucket_arn" {
   value = module.s3tables.table_bucket_arn
 }
@@ -80,4 +84,20 @@ output "kafka_connect_rest_url" {
 
 output "kafka_topic_name" {
   value = module.kafka.topic_name
+}
+
+output "airflow_instance_id" {
+  value = module.airflow.instance_id
+}
+
+output "airflow_private_ip" {
+  value = module.airflow.private_ip
+}
+
+output "airflow_web_url" {
+  value = module.airflow.web_url
+}
+
+output "airflow_admin_password_ssm_parameter_name" {
+  value = module.airflow.admin_password_ssm_parameter_name
 }

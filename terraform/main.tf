@@ -58,3 +58,21 @@ module "kafka" {
   volume_size                    = var.kafka_volume_size
   topic_name                     = var.kafka_topic_name
 }
+
+module "airflow" {
+  source = "../modules/airflow"
+
+  project_name            = var.project_name
+  environment             = var.environment
+  aws_region              = var.aws_region
+  subnet_id               = module.networking.private_subnet_ids[0]
+  vpc_security_group_ids  = [module.security.airflow_security_group_id]
+  instance_type           = var.airflow_instance_type
+  volume_size             = var.airflow_volume_size
+  kafka_bootstrap_servers = module.kafka.bootstrap_servers
+  kafka_topic_name        = module.kafka.topic_name
+  s3tables_bucket_arn     = module.s3tables.table_bucket_arn
+  s3tables_table_arn      = module.s3tables.table_arn
+  s3tables_namespace      = module.s3tables.namespace
+  s3tables_table_name     = module.s3tables.table_name
+}

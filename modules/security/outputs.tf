@@ -12,3 +12,8 @@ output "kafka_security_group_id" {
   description = "ID of the Kafka security group"
   value       = aws_security_group.kafka.id
 }
+
+output "airflow_security_group_id" {
+  description = "ID of the Airflow security group"
+  value       = aws_security_group.airflow.id
+}

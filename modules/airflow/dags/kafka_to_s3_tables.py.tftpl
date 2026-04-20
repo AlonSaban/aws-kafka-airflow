@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any
+
+import pyarrow as pa
+from airflow import DAG
+from airflow.decorators import task
+from airflow.hooks.base import BaseHook
+from kafka import KafkaConsumer
+from pyiceberg.catalog import load_catalog
+
+
+def _parse_timestamp(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    raise ValueError(f"Unsupported timestamp value: {value!r}")
+
+
+def _normalize_record(payload: dict) -> dict:
+    source_ts_ms = payload.get("__source_ts_ms") or payload.get("source_ts_ms")
+    if source_ts_ms is None:
+        source_ts = datetime.now(timezone.utc)
+    else:
+        source_ts = datetime.fromtimestamp(int(source_ts_ms) / 1000, tz=timezone.utc)
+
+    op = payload.get("__op") or payload.get("op") or "u"
+    if payload.get("__deleted") in ("true", True):
+        op = "d"
+
+    return {
+        "id": int(payload["id"]),
+        "customer_name": payload["customer_name"],
+        "amount": Decimal(str(payload["amount"])),
+        "status": payload["status"],
+        "created_at": _parse_timestamp(payload["created_at"]),
+        "__op": op,
+        "__source_ts": source_ts,
+    }
+
+
+def _delete_filter_for_ids(ids: list[int]) -> str:
+    unique_ids = sorted(set(ids))
+    if not unique_ids:
+        raise ValueError("Expected at least one id to build a delete filter")
+    if len(unique_ids) == 1:
+        return f"id == {unique_ids[0]}"
+    joined = ", ".join(str(item) for item in unique_ids)
+    return f"id in ({joined})"
+
+
+with DAG(
+    dag_id="kafka_to_s3_tables",
+    start_date=datetime(2025, 1, 1),
+    schedule=timedelta(minutes=5),
+    catchup=False,
+    tags=["dataops", "cdc", "iceberg"],
+) as dag:
+    @task()
+    def consume_and_write() -> int:
+        kafka_conn = BaseHook.get_connection("kafka_default")
+        aws_conn = BaseHook.get_connection("aws_default")
+
+        bootstrap_servers = kafka_conn.extra_dejson.get("bootstrap.servers")
+        if not bootstrap_servers:
+            raise ValueError("kafka_default connection is missing bootstrap.servers")
+
+        aws_region = aws_conn.extra_dejson.get("region_name") or "${aws_region}"
+
+        consumer = KafkaConsumer(
+            "${kafka_topic_name}",
+            bootstrap_servers=bootstrap_servers,
+            group_id="airflow-kafka-to-s3tables",
+            auto_offset_reset="earliest",
+            enable_auto_commit=True,
+            consumer_timeout_ms=10000,
+            value_deserializer=lambda v: json.loads(v.decode("utf-8")),
+        )
+
+        records = []
+        for message in consumer:
+            records.append(_normalize_record(message.value))
+
+        consumer.close()
+
+        if not records:
+            return 0
+
+        latest_by_id: dict[int, dict] = {}
+        for record in records:
+            latest_by_id[record["id"]] = record
+
+        ids_to_replace = list(latest_by_id.keys())
+        upsert_rows = [row for row in latest_by_id.values() if row["__op"] != "d"]
+
+        catalog = load_catalog(
+            "s3tables",
+            **{
+                "type": "rest",
+                "warehouse": "${s3tables_bucket_arn}",
+                "uri": f"https://s3tables.{aws_region}.amazonaws.com/iceberg",
+                "rest.sigv4-enabled": "true",
+                "rest.signing-name": "s3tables",
+                "rest.signing-region": aws_region,
+            },
+        )
+        table = catalog.load_table("${s3tables_namespace}.${s3tables_table_name}")
+
+        if ids_to_replace:
+            table.delete(_delete_filter_for_ids(ids_to_replace))
+
+        if upsert_rows:
+            arrow_table = pa.Table.from_pylist(upsert_rows)
+            table.append(arrow_table)
+
+        return len(records)
+
+    consume_and_write()
