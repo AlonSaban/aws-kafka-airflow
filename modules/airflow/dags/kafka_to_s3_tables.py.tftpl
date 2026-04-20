@@ -15,18 +15,24 @@ from pyiceberg.catalog import load_catalog
 
 def _parse_timestamp(value: Any) -> datetime:
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        normalized = value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return normalized.replace(tzinfo=None)
     if isinstance(value, str):
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        normalized = parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        return normalized.replace(tzinfo=None)
     raise ValueError(f"Unsupported timestamp value: {value!r}")
 
 
-def _normalize_record(payload: dict) -> dict:
+def _normalize_record(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+
     source_ts_ms = payload.get("__source_ts_ms") or payload.get("source_ts_ms")
     if source_ts_ms is None:
-        source_ts = datetime.now(timezone.utc)
+        source_ts = datetime.now(timezone.utc).replace(tzinfo=None)
     else:
-        source_ts = datetime.fromtimestamp(int(source_ts_ms) / 1000, tz=timezone.utc)
+        source_ts = datetime.fromtimestamp(int(source_ts_ms) / 1000, tz=timezone.utc).replace(tzinfo=None)
 
     op = payload.get("__op") or payload.get("op") or "u"
     if payload.get("__deleted") in ("true", True):
@@ -83,7 +89,9 @@ with DAG(
 
         records = []
         for message in consumer:
-            records.append(_normalize_record(message.value))
+            normalized = _normalize_record(message.value)
+            if normalized is not None:
+                records.append(normalized)
 
         consumer.close()
 
