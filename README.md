@@ -434,23 +434,4 @@ Key design choices in the current implementation:
 - S3 Tables is used as the Iceberg sink instead of a traditional data lake bucket plus separate metastore
 - Trino is configured against the Iceberg REST catalog path for S3 Tables
 
-## Recommended Evidence for Submission
 
-To demonstrate the task is working, capture:
-
-- Terraform apply output or screenshots
-- Kafka Connect connector status
-- Airflow DAG success
-- Trino query result for the `orders` table
-- optionally a short recording showing the insert, Kafka flow, Airflow run, and final Trino query
-
-## What Is Still Left
-
-From an implementation perspective, the main Terraform work is now in place.
-
-The remaining work is mostly verification and submission polish:
-
-- runtime proof that all EC2 bootstrap scripts complete successfully
-- end-to-end CDC validation
-- screenshots or recording for submission
-- optional tightening of security groups and operational behavior
